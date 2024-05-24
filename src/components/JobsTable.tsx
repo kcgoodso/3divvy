@@ -1,4 +1,5 @@
 import { generateClient } from 'aws-amplify/data';
+import { DataGrid } from '@mui/x-data-grid';
 import { useAuthenticator } from '@aws-amplify/ui-react';
 import type { Schema } from '../../amplify/data/resource';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
@@ -25,7 +26,7 @@ import {
 } from '@mui/material';
 import { useEffect, useState } from 'react';
 
-function formatDate(date_str) {
+const FORMAT_DATE = (date_str) => {
     let date = new Date(date_str);
     // Extract components from the date object
     let month = date.getMonth() + 1; // Months are zero-indexed
@@ -47,9 +48,50 @@ function formatDate(date_str) {
     return `${month}/${day}/${year} ${hours}:${minutes}`;
 }
 
+const LIST_FORMATTER = (els) =>{
+    return (els.length ? els.join(", ") : "None");
+}
+
+
+const JOB_COLUMNS: GridColDef<(typeof rows)[number]>[] = [
+    {
+        field: 'title',
+        headerName: 'Title',
+        width: 150,
+    },
+    {
+        field: 'description',
+        headerName: 'Description',
+        width: 150,
+    },
+    {
+        field: 'requiredMaterials',
+        headerName: 'Materials',
+        width: 150,
+        valueFormatter: LIST_FORMATTER
+    },
+    {
+        field: 'colors',
+        headerName: 'Colors',
+        width: 150,
+        valueFormatter: LIST_FORMATTER
+    },
+    {
+        field: 'createdAt',
+        headerName: 'Date Posted',
+        width: 150,
+        valueFormatter: FORMAT_DATE
+    },
+    {
+        field: 'amountOffered',
+        headerName: 'Amount Offered',
+        width: 150,
+    }
+];
 
 export default function JobsTable(props) {
     const filters = props.filters;
+    const selectPopup = props.selectPopup;
     const allowDelete = props.allowDelete ?? false;
     const allowEdit = props.allowEdit ?? false;
     const client = generateClient<Schema>();
@@ -58,6 +100,7 @@ export default function JobsTable(props) {
     const [pageTokens, setPageTokens] = useState([]);
     const [currentPageIndex, setCurrentPageIndex] = useState(1);
     const [hasMorePages, setHasMorePages] = useState(true);
+    const [selectedRows, setSelectedRows] = useState([]);
 
     const fetchData = async (init, nextPage) => {
         if(init || (hasMorePages && currentPageIndex === pageTokens.length)) {
@@ -67,6 +110,8 @@ export default function JobsTable(props) {
                 nextToken: pageTokens[pageTokens.length - 1],
                 authMode: 'userPool'
             });
+
+            console.log(new_jobs);
 
             if(! nextToken) {
                 setHasMorePages(false);
@@ -86,51 +131,27 @@ export default function JobsTable(props) {
 
     useEffect(() => { fetchData(true, false); }, [props.filters]);
 
-    if(jobs.length === 0) {
+
+
+
+    if(jobs.length == 0) {
         return (<p>No jobs matching criteria.</p>);
     }
 
+    const handleSelectionChange = (selection) => {
+        setSelectedRows(selection);
+    };
+
     return (
     <>
-    <TableContainer>
-        <Table>
-        <TableHead>
-            <TableRow>
-                <TableCell>Title</TableCell>
-                <TableCell>Time Created</TableCell>
-                <TableCell>Amount Offered ($)</TableCell>
-                <TableCell>Description</TableCell>
-                { props.allowEdit   ? <TableCell></TableCell> : null }
-                { props.allowDelete ? <TableCell></TableCell> : null }
-            </TableRow>
-        </TableHead>
-        <TableBody>
-        {jobs[currentPageIndex - 1].map((job) => {
-            return (
-            <TableRow key={job['id']}>
-                <TableCell>{job['title']}</TableCell>
-                <TableCell>{formatDate(job['createdAt'])}</TableCell>
-                <TableCell>{job['amountOffered']}</TableCell>
-                <TableCell>{job['description']}</TableCell>
-                { props.allowEdit ?
-                    (<TableCell>
-                        <Link to={`/home/editJob/${job['id']}`}>
-                            <FontAwesomeIcon icon={faEdit} />
-                        </Link>
-                    </TableCell>) : null
-                }
-                { props.allowDelete ?
-                    (<TableCell>
-                        <Link to={`/home/deleteJob/${job['id']}`}>
-                            <FontAwesomeIcon icon={faTrash} />
-                        </Link>
-                    </TableCell>) : null
-                }
-            </TableRow>);
-        })}
-        </TableBody>
-        </Table>
-    </TableContainer>
+    <DataGrid 
+        checkboxSelection 
+        disableMultipleRowSelection={true}
+        columns={JOB_COLUMNS} 
+        rows={jobs[currentPageIndex-1]} 
+        onRowSelectionModelChange={handleSelectionChange}
+    />
+    {selectedRows.length > 0 && selectPopup(selectedRows[0])}
     <Pagination
         currentPage={currentPageIndex}
         totalPages={pageTokens.length}
@@ -139,6 +160,5 @@ export default function JobsTable(props) {
         onNext={() => fetchData(false, true)}
         onChange={(pageIndex) => setCurrentPageIndex(pageIndex)}
     />
-    </>
-    );
+    </>);
 }

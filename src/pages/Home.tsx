@@ -153,11 +153,31 @@ export default function () {
     const userJobsFilter = { submitter: { eq: user.userId } };
     const userContractJobsFilter = { 'contract.contractor': { eq: user.userId } };
 
+    const rowSelectPopup = (job_id) => {
+        return (
+        <>
+        <Button>
+        <Link to={`/home/deleteJob/${job_id}`}>
+            <FontAwesomeIcon icon={faTrash} />
+            <span>Delete job</span>
+        </Link>
+        </Button>
+        <Button>
+        <Link to={`/home/editJob/${job_id}`}>
+            <FontAwesomeIcon icon={faEdit} />
+            <span>Edit job</span>
+        </Link>
+        </Button>
+        </>)
+    }
 
     return (
         <>
         <h3>Jobs Posted by You</h3>
-        <JobsTable filters={userJobsFilter} allowEdit={true} allowDelete={true}/>
+        <JobsTable filters={userJobsFilter} 
+            selectPopup={rowSelectPopup}
+            allowEdit={true} 
+            allowDelete={true}/>
         <h3>Jobs Accepted By You</h3>
         <JobsTable filters={userContractJobsFilter}/>
         </>

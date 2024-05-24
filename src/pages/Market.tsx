@@ -272,7 +272,7 @@ export default function Market({ user }: { user: AuthUser }) {
         'materials': {
             'Plastic': false,
             'Resin': false,
-            'Carbon Fiber': false
+            'CarbonFiber': false
         },
         'colors': {
             'Red': false,
@@ -295,7 +295,6 @@ export default function Market({ user }: { user: AuthUser }) {
 
         let colors = [];
         let color, val;
-        console.log(formData.colors);
         for([color, val] of Object.entries(formData.colors)) {
             if(val) {
                 colors.push(color);
@@ -323,10 +322,28 @@ export default function Market({ user }: { user: AuthUser }) {
         let {data: jobs, errors} = await client.models.Job.list({
             filter: new_filter
         });
-        console.log("Callback JOBS");
-        console.log(jobs);
-        console.log("Callback filters");
-        console.log(new_filter.materials);
+    }
+
+    const acceptJobAsContract = async (job_id) => {
+        let resp = await client.models.Contract.create({
+            jobID: job_id,
+            contractor: user.userId
+        });
+
+        if('errors' in resp) {
+            console.log("FAILED");
+            // do sth about it.
+        }
+
+        let {data: contracts, errs}= await client.models.Contract.list();
+        console.log("CONTRACTS");
+        console.log(contracts);
+    }
+
+    const rowSelectPopup = (job_id) => {
+        return (
+        <Button onClick={() => acceptJobAsContract(job_id)}>Accept job as contract</Button>
+        );
     }
 
     return (
@@ -343,10 +360,12 @@ export default function Market({ user }: { user: AuthUser }) {
                 <div className='jobs-list'>
                     <h2>Jobs List</h2>
                     <Divider></Divider>
+                    <Box>
                     {Object.keys(filters).length > 0 ?
-                        (<JobsTable filters={filters}/>) :
+                        (<JobsTable filters={filters} selectPopup={rowSelectPopup}/>) :
                         (<p>Apply some filters, and we'll show available jobs</p>)
                     }
+                    </Box>
                 </div>
             </div>
             {showPopUp &&
