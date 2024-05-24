@@ -1,4 +1,6 @@
 import React, { useState, Dispatch, useEffect } from 'react';
+import JobsTable from '../components/JobsTable.tsx';
+import InputAdornment from '@mui/material/InputAdornment';
 import { AuthUser } from 'aws-amplify/auth';
 import {
     FormControlLabel,
@@ -44,25 +46,54 @@ type FilterBarProps = {
     setShowPopUp: Dispatch<React.SetStateAction<boolean>>,
 }
 
-const FilterBar: React.FC<FilterBarProps> = ({ setShowPopUp }) => {
+const FilterBar: React.FC<FilterBarProps> = (props) => {
+    let setShowPopUp = props.setShowPopUp;
+    let formData = props.formData;
+    let setFormData = props.setFormData;
+    let submitCallback = props.submitCallback;
+
+    let onMaterialCheck = (mat, event) => {
+        let formDataCopy = JSON.parse(JSON.stringify(formData));
+        let checked = event.target.checked;
+        formDataCopy.materials[mat] = checked;
+        setFormData(formDataCopy);
+    }
+
+    let onColorCheck = (col, event) => {
+        let formDataCopy = JSON.parse(JSON.stringify(formData));
+        let checked = event.target.checked;
+        formDataCopy.colors[col] = checked;
+        setFormData(formDataCopy);
+    }
+
+    let handleNumericChange = (field, event) => {
+        let formDataCopy = JSON.parse(JSON.stringify(formData));
+        formDataCopy[field] = event.target.value.replace(/[^0-9.]/g, '');
+        setFormData(formDataCopy);
+    }
+
     return (
         <>
             <div className='material'>
                 <label>Material</label>
                 <Box className='filters'>
-                    <FormControlLabel control={<Checkbox />} label="Plastic" />
-                    <FormControlLabel control={<Checkbox />} label="Resin" />
-                    <FormControlLabel control={<Checkbox />} label="Carbon Fiber" />
+                {Object.keys(formData.materials).map((mat) => (
+                    <FormControlLabel control={<Checkbox 
+                        checked={ formData.materials[mat] }
+                        onChange={ (e) => { onMaterialCheck(mat, e) } }
+                    />} label={mat} />
+                ))}
                 </Box>
             </div>
             <div className='color'>
                 <label>Color</label>
                 <Box className='filters'>
-                    <FormControlLabel control={<Checkbox />} label="Red" />
-                    <FormControlLabel control={<Checkbox />} label="White" />
-                    <FormControlLabel control={<Checkbox />} label="Black" />
-                    <FormControlLabel control={<Checkbox />} label="Blue" />
-                    <FormControlLabel control={<Checkbox />} label="Transparent" />
+                    {Object.keys(formData.colors).map((col) => (
+                        <FormControlLabel control={<Checkbox 
+                            checked={ formData.colors[col] }
+                            onChange={ (e) => { onColorCheck(col, e) } }
+                        />} label={col} />
+                    ))}
                 </Box>
             </div>
             <div className='min-size'>
@@ -72,6 +103,11 @@ const FilterBar: React.FC<FilterBarProps> = ({ setShowPopUp }) => {
                         label="Min Price"
                         type="number"
                         size="small"
+                        value={formData.minPrice}
+                        onChange={(e) => { handleNumericChange('minPrice', e) } }
+                        InputProps={{
+                            startAdornment: <InputAdornment position="start">$</InputAdornment>,
+                        }}
                         InputLabelProps={{
                             shrink: true,
                         }}
@@ -85,13 +121,18 @@ const FilterBar: React.FC<FilterBarProps> = ({ setShowPopUp }) => {
                         label="Max Price"
                         type="number"
                         size="small"
+                        value={formData.maxPrice}
+                        onChange={(e) => { handleNumericChange('maxPrice', e) } }
+                        InputProps={{
+                            startAdornment: <InputAdornment position="start">$</InputAdornment>,
+                        }}
                         InputLabelProps={{
                             shrink: true,
                         }}
                     />
                 </Box>
             </div>
-            <ColorButton variant="outlined">Apply Filter</ColorButton>
+            <ColorButton variant="outlined" onClick={submitCallback}>Apply Filter</ColorButton>
             <p>----- OR ------</p>
             <ColorButton variant="outlined" onClick={() => setShowPopUp(true)}>Create New Job</ColorButton>
         </>
@@ -191,7 +232,7 @@ export default function Market({ user }: { user: AuthUser }) {
             }
         };
         fetchData();
-    }, [jobsList])
+    }, [])
 
     const emptyRows =
         page > 0 ? Math.max(0, (1 + page) * rowsPerPage - jobsList.length) : 0;
@@ -224,6 +265,69 @@ export default function Market({ user }: { user: AuthUser }) {
         }
     };
 
+    let [formData, setFormData] = useState({
+        'minPrice': 0,
+        'maxPrice': 100,
+        'colors': new Set(),
+        'materials': {
+            'Plastic': false,
+            'Resin': false,
+            'Carbon Fiber': false
+        },
+        'colors': {
+            'Red': false,
+            'White': false,
+            'Black': false,
+            'Blue': false,
+            'Transparent': false
+        }
+    });
+
+    let [filters, setFilters] = useState({});
+
+    const submitCallback = async () => {
+        let new_filter = {
+            amountOffered: {
+                gt: formData.minPrice,
+                lt: formData.maxPrice
+            },
+        }
+
+        let colors = [];
+        let color, val;
+        console.log(formData.colors);
+        for([color, val] of Object.entries(formData.colors)) {
+            if(val) {
+                colors.push(color);
+            }
+        }
+
+        if(colors.length > 0) {
+            new_filter.colors = { 'eq': colors };
+        }
+
+        let materials = [];
+        let material;
+        for([material, val] of Object.entries(formData.materials)) {
+            if(val) {
+                materials.push(material);
+            }
+        }
+
+        if(materials.length > 0) {
+            new_filter.requiredMaterials = { 'eq': materials };
+        }
+
+
+        setFilters(new_filter);
+        let {data: jobs, errors} = await client.models.Job.list({
+            filter: new_filter
+        });
+        console.log("Callback JOBS");
+        console.log(jobs);
+        console.log("Callback filters");
+        console.log(new_filter.materials);
+    }
 
     return (
         <>
@@ -231,64 +335,18 @@ export default function Market({ user }: { user: AuthUser }) {
                 <div className='filter-div'>
                     <FilterBar
                         setShowPopUp={setShowPopUp}
+                        formData={formData}
+                        setFormData={setFormData}
+                        submitCallback={submitCallback}
                     />
                 </div>
                 <div className='jobs-list'>
                     <h2>Jobs List</h2>
                     <Divider></Divider>
-                    <TableContainer>
-                        <Table stickyHeader sx={{ minWidth: 650 }} aria-label="simple table">
-                            <TableHead>
-                                <TableRow>
-                                    <TableCell>Title</TableCell>
-                                    <TableCell align="center">Description</TableCell>
-                                    <TableCell align="center">Amount Offered ($)</TableCell>
-                                    <TableCell align="right">Action</TableCell>
-                                </TableRow>
-                            </TableHead>
-                            <TableBody>
-                                {jobsList.map((row, index) => (
-                                    <TableRow
-                                        key={row.title}
-                                        sx={{ '&:last-child td, &:last-child th': { border: 0 } }}
-                                    >
-                                        <TableCell component="th" scope="row">
-                                            {row.title}
-                                        </TableCell>
-                                        <TableCell align="center">{row.description}</TableCell>
-                                        <TableCell align="center">{row.amountOffered}</TableCell>
-                                        <TableCell align="right">
-                                            <IconButton edge="end" aria-label="delete" onClick={() => handleDelete(row.id)}>
-                                                <DeleteIcon />
-                                            </IconButton>
-                                        </TableCell>
-                                    </TableRow>
-                                ))}
-                            </TableBody>
-                            <TableFooter>
-                                <TableRow>
-                                    <TablePagination
-                                        rowsPerPageOptions={[5, 10, 25, { label: 'All', value: -1 }]}
-                                        colSpan={4}
-                                        count={jobsList.length}
-                                        rowsPerPage={rowsPerPage}
-                                        page={page}
-                                        slotProps={{
-                                            select: {
-                                                inputProps: {
-                                                    'aria-label': 'rows per page',
-                                                },
-                                                native: true,
-                                            },
-                                        }}
-                                        onPageChange={handleChangePage}
-                                        onRowsPerPageChange={handleChangeRowsPerPage}
-                                        ActionsComponent={TablePaginationActions}
-                                    />
-                                </TableRow>
-                            </TableFooter>
-                        </Table>
-                    </TableContainer>
+                    {Object.keys(filters).length > 0 ?
+                        (<JobsTable filters={filters}/>) :
+                        (<p>Apply some filters, and we'll show available jobs</p>)
+                    }
                 </div>
             </div>
             {showPopUp &&

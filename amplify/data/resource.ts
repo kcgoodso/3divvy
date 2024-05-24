@@ -8,16 +8,17 @@ specifies that any unauthenticated user can "create", "read", "update",
 and "delete" any "Todo" records.
 =========================================================================*/
 const schema = a.schema({
-  RequiredMaterials: a.enum(["PLA", "NYLON"]),
+  RequiredMaterials: a.enum(["Plastic", "Resin", "CarbonFiber"]),
+  Colors: a.enum(["Red", "White", "Black", "Blue", "Transparent"]),
   Job: a
     .model({
       submitter: a.string().required(),
       title: a.string(),
       description: a.string(),
       amountOffered: a.float(),
-      requiredMaterials: a.ref("RequiredMaterials"),
+      requiredMaterials: a.ref("RequiredMaterials").array(),
+      colors: a.ref("Colors").array(),
       contract: a.hasOne('Contract', 'jobID')
-
     })
     .authorization((allow) => [allow.ownerDefinedIn("submitter")]),
   Contract: a

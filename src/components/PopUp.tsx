@@ -7,6 +7,10 @@ import {
     DialogTitle,
     DialogContent,
     DialogActions,
+    Box,
+    FormControlLabel,
+    Checkbox
+
 } from "@mui/material";
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 import { styled } from '@mui/material/styles';
@@ -39,18 +43,35 @@ type CreateJobResult = {
 };
 
 async function CreateJob({ user, formData }: { user: AuthUser, formData: FormData }): Promise<CreateJobResult> {
-    try {
-        const client = generateClient<Schema>();
-        await client.models.Job.create({
-            submitter: user.userId,
-            title: formData.title,
-            description: formData.description,
-            amountOffered: formData.amt_offered,
-        });
-        return { success: true, message: 'Job created successfully.' };
-    } catch (error) {
+    let colors = [];
+    let color, val;
+    for([color, val] of Object.entries(formData.colors)) {
+        if(val) {
+            colors.push(color);
+        }
+    }
+ 
+    let materials = [];
+    let material;
+    for([material, val] of Object.entries(formData.materials)) {
+        if(val) {
+            materials.push(material);
+        }
+    }
+ 
+    const client = generateClient<Schema>();
+    let {data: new_job, errors} = await client.models.Job.create({
+        submitter: user.userId,
+        title: formData.title,
+        description: formData.description,
+        amountOffered: formData.amt_offered,
+        colors: colors,
+        requiredMaterials: materials
+    });
+    if(errors) {
         return { success: false, message: 'Failed to create job.' };
     }
+    return { success: true, message: 'Job created successfully.' };
 }
 
 type PopUpProps = {
@@ -68,8 +89,33 @@ export default function Popup({ showPopUp, setShowPopUp, setShowAlert, setShowAl
         "title": "",
         "description": "",
         "amt_offered": 0,
-        "req_mat": [],
+        'materials': {
+            'Plastic': false,
+            'Resin': false,
+            'CarbonFiber': false
+        },
+        'colors': {
+            'Red': false,
+            'White': false,
+            'Black': false,
+            'Blue': false,
+            'Transparent': false
+        }
     });
+
+    let onMaterialCheck = (mat, event) => {
+        let formDataCopy = JSON.parse(JSON.stringify(formData));
+        let checked = event.target.checked;
+        formDataCopy.materials[mat] = checked;
+        setFormData(formDataCopy);
+    }
+
+    let onColorCheck = (col, event) => {
+        let formDataCopy = JSON.parse(JSON.stringify(formData));
+        let checked = event.target.checked;
+        formDataCopy.colors[col] = checked;
+        setFormData(formDataCopy);
+    }
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const { name, value } = e.target;
@@ -82,12 +128,9 @@ export default function Popup({ showPopUp, setShowPopUp, setShowAlert, setShowAl
     const handleCreateJob = async() => {
         setShowPopUp(false);
         const result = await CreateJob({ user, formData });
-        setAlertType("error")
-        if (result.success) {
-            setShowAlert(true);
-            setAlertType("success")
-            setShowAlertMessage(result.message);
-        }
+        setShowAlert(true);
+        setAlertType(result.success ? "success" : "error")
+        setShowAlertMessage(result.message);
     }
 
     const isDisabled = !formData.title || !formData.description || formData.amt_offered <= 0;
@@ -153,6 +196,29 @@ export default function Popup({ showPopUp, setShowPopUp, setShowAlert, setShowAl
                                 onChange={handleChange}
                             />
                         </Grid>
+                        <div className='material'>
+                            <label>Material</label>
+                            <Box className='filters'>
+                            {Object.keys(formData.materials).map((mat) => (
+                                <FormControlLabel control={<Checkbox 
+                                    checked={ formData.materials[mat] }
+                                    onChange={ (e) => { onMaterialCheck(mat, e) } }
+                                />} label={mat} />
+                            ))}
+                            </Box>
+                        </div>
+                        <div className='color'>
+                            <label>Color</label>
+                            <Box className='filters'>
+                                {Object.keys(formData.colors).map((col) => (
+                                    <FormControlLabel control={<Checkbox 
+                                        checked={ formData.colors[col] }
+                                        onChange={ (e) => { onColorCheck(col, e) } }
+                                    />} label={col} />
+                                ))}
+                            </Box>
+                        </div>
+
                         <Grid item sx={{width: '100%'}}>
                             <Button
                                 component="label"

@@ -11,7 +11,6 @@
   padding: 10px 10px 20px 10px;
   margin-top: 20px;
   width: 175px;
-  height: 480px;
   margin-left: 10px;
   border: 1px solid rgb(161, 161, 161);
   display: flex;
@@ -57,7 +56,6 @@
 .filters {
   display: flex;
   flex-direction: column;
-  height: 50px;
   overflow-y: auto;
   border-radius: 5px;
   border: 1px solid rgb(192, 192, 192);
